@@ -1,0 +1,107 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="3500" name="THRESHOLD2"/>
+<constant value="2100" name="THRESHOLD13"/>
+<constant value="1150" name="STOP"/>
+<constant value="1" name="LEFT"/>
+<constant value="2" name="RIGHT"/>
+<constant value="0" name="MOVING"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="1" name="thymio-II">#javier wahn B00935618
+#Adam Green B00960089
+#Jamie Wright B00949290
+#Tianxiang Lin B00890305
+var light1 = 0
+var light2 = 0
+var light3 = 0
+var state = 3
+var sensor = 0
+
+#change stop to a higher value if you want it to get closer before stopping
+	
+onevent button.forward
+	motor.right.target = 0
+	motor.left.target = 0
+	state =21
+	
+onevent button.backward
+	state =0 #PRESS BACK TO START
+
+#the button commands are useless you can remove them
+	
+onevent prox
+	#get average of sensor
+	sensor = prox.horizontal[2]+prox.horizontal[1]+prox.horizontal[3]
+	sensor = sensor/3
+	call leds.circle(0,0,0,0,0,0,0,0)
+
+	
+	if sensor>STOP and state == MOVING and timer.period[0] == 0 then
+		motor.right.target = 0
+		motor.left.target = 0
+		callsub state
+		callsub identify
+		timer.period[0] = 467 #figure out turnin
+		if state ==LEFT then
+			motor.right.target = 400
+			motor.left.target = -400
+		end
+		if state ==RIGHT then
+			motor.right.target = -365
+			motor.left.target = 365
+		end
+	end
+	if state == MOVING then
+		motor.left.target = 400
+		motor.right.target = 400
+	end
+
+onevent timer0
+	#once the turning period is over
+	motor.left.target = 400
+	motor.left.target = 400
+	state = MOVING
+	timer.period[0] = 0
+	
+	
+	
+	
+sub state
+	if prox.horizontal[3] >THRESHOLD13  then
+		state = RIGHT
+	end
+	if prox.horizontal[1] >THRESHOLD13  then
+		state = LEFT
+	end
+	
+#function changes the top LEDS based on the current prox.horizontal readings only after stopping
+sub identify 
+		if state == RIGHT then#for prox.horizontal[3]
+			light3 = 32
+		else
+			light3 = 0
+		end
+		if state == LEFT then#for prox.horizontal[1]
+			light1 = 32
+		else
+			light1 = 0
+		end
+		call leds.circle(light2,light3,0,0,0,0,0,light1)
+	
+
+</node>
+
+
+</network>

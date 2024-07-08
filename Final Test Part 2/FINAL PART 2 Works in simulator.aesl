@@ -1,0 +1,190 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+
+
+<!--list of constants-->
+<constant value="0" name="MOVING"/>
+<constant value="1" name="LEFT"/>
+<constant value="2" name="RIGHT"/>
+<constant value="4" name="SEARCHING"/>
+<constant value="300" name="DUCT"/>
+<constant value="1100" name="WALL"/>
+<constant value="3500" name="THRESHOLD13"/>
+<constant value="5" name="TURNING"/>
+<constant value="800" name="THRESHOLD_WALL"/>
+<constant value="652" name="INITIALFORWARD"/>
+<constant value="3" name="FORWARD"/>
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="1" name="thymio-II"> var state
+ var sensorState = 0
+ var sensor = LEFT
+ var light1 = 0
+	var light2 = 0	
+	var light3 = 0
+	var count = 0
+	var firsturn = 0
+
+sensorState = TURNING
+timer.period[0] = 1
+
+
+ onevent button.backward
+ count = 6
+ sensor = FORWARD
+ 
+onevent prox	
+	sensor= (prox.horizontal[1] + prox.horizontal[2] + prox.horizontal[3])/3
+	call leds.circle(0,0,0,0,0,0,0,0)
+	
+	#if it finds ductape
+	if (prox.ground.delta[0] &lt; DUCT or prox.ground.delta[1] &lt; DUCT)  and count &lt; 6 and sensorState == MOVING then
+		sensorState = SEARCHING
+		
+	end
+	
+	
+	#if its in moving state
+	if sensorState == MOVING and count &lt; 6 then
+		if state == RIGHT then	
+			motor.right.target = 0
+			motor.left.target = 200
+			
+		end
+		if state == LEFT then
+	 		motor.left.target = 0
+	 		motor.right.target = 200
+	 	end
+	 	if firsturn == 0 then
+	 		state = RIGHT
+	 		firsturn = 1
+	 		if state == RIGHT then	
+				motor.right.target = 0
+				motor.left.target = 200
+			
+			end
+	 	end
+	 end
+	 #FINAL TURN
+	 if count ==6 and sensorState == MOVING then
+	 timer.period[0] = 0
+		if  prox.horizontal[3] > THRESHOLD_WALL or prox.horizontal[4]> THRESHOLD_WALL  then
+			motor.left.target = -80 #get away from wall in right side
+			motor.right.target = 400
+		elseif  prox.horizontal[1] > THRESHOLD_WALL    then
+			motor.left.target = 400 #get away from wall in left side
+			motor.right.target = -80
+		else
+			motor.left.target = 400
+			motor.right.target = 400
+		end
+		
+	end
+	
+	#LINEFOLLOW BLOCK 
+	if sensorState  == SEARCHING and count &lt;6 then
+		timer.period[0] = 0
+		if state == LEFT and  prox.ground.delta[0] >= DUCT then
+      		state = RIGHT                       #  transition to RIGHT state
+      		motor.left.target = 199           #  move right
+      		motor.right.target = 128
+  		end
+    	
+    	# if moving right and sensing black line
+    	if state == RIGHT and prox.ground.delta[0] &lt; DUCT then
+    	  state = LEFT                           #  transition to LEFT state	
+    	  motor.left.target = 128               #  move left
+    	  motor.right.target = 199
+   		 end    	
+   		 
+   		 
+   		 #DECIDE TURN HERE AFTER LINE FOLLOW
+   		 if sensor > WALL then
+   			 sensorState = TURNING	
+   			 motor.left.target = 0             #  move right
+      		 motor.right.target = 0
+      		 callsub state 
+      		 callsub identify
+      		 #TURN TAKEN HERE
+      		 if state ==LEFT then
+				timer.period[0] = 469 #figure out turnin
+				state = RIGHT
+				motor.right.target = 400
+				motor.left.target = -400
+				count++
+			
+			elseif state ==RIGHT then
+				state = LEFT
+				timer.period[0] = 475 #figure out turnin
+				motor.right.target = -400
+				motor.left.target = 400
+				count++
+			end
+   		 end
+	end
+	 
+	 
+onevent timer0
+		#FOLLOWING TWO BLOCKS IS FOR MOVING FORWARD
+		if sensorState == MOVING then
+			if state == RIGHT then
+				state = LEFT
+				timer.period[0] = 1200
+			elseif state == LEFT then
+				state = RIGHT
+				timer.period[0] = 1200
+			end
+		end
+		
+	
+		
+		#DONE MOVING FORWARD
+		if sensorState == FORWARD then
+			sensorState = MOVING
+			timer.period[0] = INITIALFORWARD
+			
+		end
+		#IF DONE TURNING MOVE FORWARD
+		if sensorState == TURNING then
+			timer.period[0] = 920
+			sensorState = FORWARD
+			motor.right.target = 345
+			motor.left.target = 345
+		end
+		
+
+	
+		
+	
+#function changes the top LEDS based on the current prox.horizontal readings only after stopping
+sub identify 
+		if state == RIGHT then#for prox.horizontal[3]
+			light3 = 32
+		else
+			light3 = 0
+		end
+		if state == LEFT then#for prox.horizontal[1]
+			light1 = 32
+		else
+			light1 = 0
+		end
+		call leds.circle(light2,light3,0,0,0,0,0,light1)
+#GIVES TURNING DIRECTION
+sub state
+	if prox.horizontal[3] >prox.horizontal[1]  then
+		state = RIGHT
+	end
+ 	if prox.horizontal[1] >prox.horizontal[3]  then
+		state = LEFT
+	end</node>
+
+
+</network>
